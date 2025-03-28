@@ -2,9 +2,9 @@
 #include <cstdint>
 
 // GPIO PIN numbers
-#define GPIO_PIN_DIN 0
-#define GPIO_PIN_CLK 1
-#define GPIO_PIN_LOAD 2
+#define GPIO_PIN_DIN 17
+#define GPIO_PIN_CLK 16
+#define GPIO_PIN_LOAD 15
 
 // Addresses
 enum
