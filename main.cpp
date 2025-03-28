@@ -52,8 +52,47 @@ void write_reg(uint8_t addr, uint8_t val)
 
 void write_col(uint8_t col, uint8_t bits)
 {
-    // Fixup row screwup
+    // When wiring I had assumed SEGA-SEGG were 0-6 and SEGDP was 7
+    // But it turns out SEGA-SEGG is 1-7 and SEGDP is 0
     write_reg(DIGIT0 + col, (bits >> 1) + ((bits & 1) << 7));
+}
+
+void tick()
+{
+    static uint64_t tickcount = -1;
+    static int hours = 23;
+    static int minutes = 59;
+    static int seconds = 59;
+
+    tickcount++;
+
+    if ((tickcount % 10) == 0)
+    {
+        seconds++;
+    }
+    if (seconds == 60)
+    {
+        seconds = 0;
+        minutes++;
+    }
+    if (minutes == 60)
+    {
+        minutes = 0;
+        hours++;
+    }
+    if (hours == 24)
+    {
+        hours = 0;
+    }
+
+    write_col(0, seconds % 10);
+    write_col(1, seconds / 10);
+
+    write_col(3, minutes % 10);
+    write_col(4, minutes / 10);
+
+    write_col(6, hours % 10);
+    write_col(7, hours / 10);
 }
 
 int main()
@@ -93,18 +132,17 @@ int main()
     // No segment (col) decode for any rows (digits)
     write_reg(DECODE_MODE, 0);
 
-    for (int i = 0;; i++)
-    {
-        //        for (int j = 0; j < 8; j++)
-        //        {
-        //            write_reg(DIGIT0 + ((i + j) & 3), (1 << j));
-        //        }
-        for (int col = 0; col < 8; col++)
-        {
-            int row = col;
-            write_col(col, row);
-        }
+    absolute_time_t now = get_absolute_time();
 
-        sleep_ms(500);
+    while (true)
+    {
+        // Wait 100ms every tick
+        absolute_time_t next = delayed_by_ms(now, 100);
+
+        sleep_until(next);
+
+        tick();
+
+        now = next;
     }
 }
