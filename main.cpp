@@ -40,8 +40,11 @@ enum
 enum
 {
     UPDATE_TIME = 0,
+    SELECT_HOURS,
     SET_HOURS,
+    SELECT_MINUTES,
     SET_MINUTES,
+    SELECT_SECONDS,
     SET_SECONDS,
     NUM_STATES,
 };
@@ -140,15 +143,18 @@ void tick()
         minutes = (seconds || subtick) ? minutes : ((minutes + 1) % 60);
         hours = (minutes || seconds || subtick) ? hours : ((hours + 1) % 24);
         break;
+
+    default:
+        break;
     }
 
     // Display
-    write_col(0, (seconds % 10) ^ ((state == SET_SECONDS) ? 0xf0 : 0));
-    write_col(1, (seconds / 10) ^ ((state == SET_SECONDS) ? 0xf0 : 0));
-    write_col(3, (minutes % 10) ^ ((state == SET_MINUTES) ? 0xf0 : 0));
-    write_col(4, (minutes / 10) ^ ((state == SET_MINUTES) ? 0xf0 : 0));
-    write_col(6, (hours % 10) ^ ((state == SET_HOURS) ? 0xf0 : 0));
-    write_col(7, (hours / 10) ^ ((state == SET_HOURS) ? 0xf0 : 0));
+    write_col(0, (seconds % 10) ^ ((state == SET_SECONDS || state == SELECT_SECONDS) ? 0xf0 : 0));
+    write_col(1, (seconds / 10) ^ ((state == SET_SECONDS || state == SELECT_SECONDS) ? 0xf0 : 0));
+    write_col(3, (minutes % 10) ^ ((state == SET_MINUTES || state == SELECT_MINUTES) ? 0xf0 : 0));
+    write_col(4, (minutes / 10) ^ ((state == SET_MINUTES || state == SELECT_MINUTES) ? 0xf0 : 0));
+    write_col(6, (hours % 10) ^ ((state == SET_HOURS || state == SELECT_HOURS) ? 0xf0 : 0));
+    write_col(7, (hours / 10) ^ ((state == SET_HOURS || state == SELECT_HOURS) ? 0xf0 : 0));
 }
 
 int main()
@@ -180,11 +186,11 @@ int main()
     // Normal operation
     write_reg(SHUTDOWN, 1);
 
-    // All 7 rows (digits)
+    // All 8 rows (digits)
     write_reg(SCAN_LIMIT, 7);
 
     // Medium intensity
-    write_reg(INTENSITY, 0xf);
+    write_reg(INTENSITY, 0x7);
 
     // No segment (col) decode for any rows (digits)
     write_reg(DECODE_MODE, 0);
