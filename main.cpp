@@ -1,9 +1,13 @@
 #include <pico/stdlib.h>
 #include <cstdint>
+#include <cmath>
 #include "hardware/gpio.h"
 #include "hardware/sync.h"
 #include "hardware/structs/ioqspi.h"
 #include "hardware/structs/sio.h"
+
+// Must be power of two
+#define TICK_HZ 8
 
 // GPIO PIN numbers
 enum
@@ -32,6 +36,16 @@ enum
     DISPLAY_TEST = 15,
 };
 
+// States
+enum
+{
+    UPDATE_TIME = 0,
+    SET_HOURS,
+    SET_MINUTES,
+    SET_SECONDS,
+    NUM_STATES,
+};
+
 bool __no_inline_not_in_flash_func(get_bootsel_button)()
 {
     const uint CS_PIN_INDEX = 1;
@@ -39,10 +53,6 @@ bool __no_inline_not_in_flash_func(get_bootsel_button)()
 
     hw_write_masked(&ioqspi_hw->io[CS_PIN_INDEX].ctrl, GPIO_OVERRIDE_LOW << IO_QSPI_GPIO_QSPI_SS_CTRL_OEOVER_LSB,
                     IO_QSPI_GPIO_QSPI_SS_CTRL_OEOVER_BITS);
-
-    // Note we can't call into any sleep functions in flash right now
-    for (volatile int i = 0; i < 1000; ++i)
-        ;
 
 #define CS_BIT (1u << 1)
     bool button_state = !(sio_hw->gpio_hi_in & CS_BIT);
@@ -89,42 +99,56 @@ void write_col(uint8_t col, uint8_t bits)
 
 void tick()
 {
-    static uint64_t tickcount = -1;
-    static int hours = 23;
-    static int minutes = 59;
-    static int seconds = 59;
+    static int state = UPDATE_TIME;
+    static uint64_t bootsel_tickcount = 0;
+    static int hours = 0;
+    static int minutes = 0;
+    static int seconds = 0;
+    static int subtick = 0;
+    static bool bootsel_prev = false;
 
-    tickcount++;
+    // Workout if bootsel button pressed and for how long
+    bool bootsel = get_bootsel_button();
+    gpio_put(PICO_DEFAULT_LED_PIN, bootsel);
+    bootsel_tickcount = bootsel ? (bootsel_tickcount + 1) : 0;
 
-    if ((tickcount % 10) == 0)
+    // State transitions
+    state = (bootsel && !bootsel_prev) ? ((state + 1) % NUM_STATES) : state;
+    bootsel_prev = bootsel;
+
+    // Handle states
+    switch (state)
     {
-        seconds++;
-    }
-    if (seconds == 60)
-    {
-        seconds = 0;
-        minutes++;
-    }
-    if (minutes == 60)
-    {
-        minutes = 0;
-        hours++;
-    }
-    if (hours == 24)
-    {
-        hours = 0;
+    case SET_HOURS:
+        if ((bootsel_tickcount & 3) == 3)
+            hours = (hours + 1) % 24;
+        break;
+
+    case SET_MINUTES:
+        if ((bootsel_tickcount & 3) == 3)
+            minutes = (minutes + 1) % 60;
+        break;
+
+    case SET_SECONDS:
+        if ((bootsel_tickcount & 3) == 3)
+            seconds = (seconds + 1) % 60;
+        break;
+
+    case UPDATE_TIME:
+        subtick = (subtick + 1) % TICK_HZ;
+        seconds = (subtick) ? seconds : ((seconds + 1) % 60);
+        minutes = (seconds || subtick) ? minutes : ((minutes + 1) % 60);
+        hours = (minutes || seconds || subtick) ? hours : ((hours + 1) % 24);
+        break;
     }
 
-    write_col(0, seconds % 10);
-    write_col(1, seconds / 10);
-
-    write_col(3, minutes % 10);
-    write_col(4, minutes / 10);
-
-    write_col(6, hours % 10);
-    write_col(7, hours / 10);
-
-    gpio_put(PICO_DEFAULT_LED_PIN, get_bootsel_button());
+    // Display
+    write_col(0, (seconds % 10) ^ ((state == SET_SECONDS) ? 0xf0 : 0));
+    write_col(1, (seconds / 10) ^ ((state == SET_SECONDS) ? 0xf0 : 0));
+    write_col(3, (minutes % 10) ^ ((state == SET_MINUTES) ? 0xf0 : 0));
+    write_col(4, (minutes / 10) ^ ((state == SET_MINUTES) ? 0xf0 : 0));
+    write_col(6, (hours % 10) ^ ((state == SET_HOURS) ? 0xf0 : 0));
+    write_col(7, (hours / 10) ^ ((state == SET_HOURS) ? 0xf0 : 0));
 }
 
 int main()
@@ -144,16 +168,14 @@ int main()
     gpio_put(GPIO_PIN_LOAD, 1);
     gpio_put(PICO_DEFAULT_LED_PIN, 0);
 
-    for (uint8_t i = 0; i < 15; i++)
-    {
-        write_reg(i, 0);
-    }
-
     // Turn all LEDs on
     write_reg(DISPLAY_TEST, 1);
     sleep_ms(500);
     write_reg(DISPLAY_TEST, 0);
     sleep_ms(500);
+
+    for (uint8_t col = 0; col < 8; col++)
+        write_col(col, 0);
 
     // Normal operation
     write_reg(SHUTDOWN, 1);
@@ -171,8 +193,8 @@ int main()
 
     while (true)
     {
-        // Wait 100ms every tick
-        absolute_time_t next = delayed_by_ms(now, 100);
+        // Wait for next tick
+        absolute_time_t next = delayed_by_ms(now, 1000 / TICK_HZ);
 
         sleep_until(next);
 
