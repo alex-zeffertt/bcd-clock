@@ -1,10 +1,17 @@
 #include <pico/stdlib.h>
 #include <cstdint>
+#include "hardware/gpio.h"
+#include "hardware/sync.h"
+#include "hardware/structs/ioqspi.h"
+#include "hardware/structs/sio.h"
 
 // GPIO PIN numbers
-#define GPIO_PIN_DIN 17
-#define GPIO_PIN_CLK 16
-#define GPIO_PIN_LOAD 15
+enum
+{
+    GPIO_PIN_DIN = 17,
+    GPIO_PIN_CLK = 16,
+    GPIO_PIN_LOAD = 15,
+};
 
 // Addresses
 enum
@@ -24,6 +31,29 @@ enum
     SHUTDOWN = 12,
     DISPLAY_TEST = 15,
 };
+
+bool __no_inline_not_in_flash_func(get_bootsel_button)()
+{
+    const uint CS_PIN_INDEX = 1;
+    uint32_t flags = save_and_disable_interrupts();
+
+    hw_write_masked(&ioqspi_hw->io[CS_PIN_INDEX].ctrl, GPIO_OVERRIDE_LOW << IO_QSPI_GPIO_QSPI_SS_CTRL_OEOVER_LSB,
+                    IO_QSPI_GPIO_QSPI_SS_CTRL_OEOVER_BITS);
+
+    // Note we can't call into any sleep functions in flash right now
+    for (volatile int i = 0; i < 1000; ++i)
+        ;
+
+#define CS_BIT (1u << 1)
+    bool button_state = !(sio_hw->gpio_hi_in & CS_BIT);
+
+    hw_write_masked(&ioqspi_hw->io[CS_PIN_INDEX].ctrl, GPIO_OVERRIDE_NORMAL << IO_QSPI_GPIO_QSPI_SS_CTRL_OEOVER_LSB,
+                    IO_QSPI_GPIO_QSPI_SS_CTRL_OEOVER_BITS);
+
+    restore_interrupts(flags);
+
+    return button_state;
+}
 
 void write(uint16_t val)
 {
@@ -93,6 +123,8 @@ void tick()
 
     write_col(6, hours % 10);
     write_col(7, hours / 10);
+
+    gpio_put(PICO_DEFAULT_LED_PIN, get_bootsel_button());
 }
 
 int main()
@@ -100,14 +132,17 @@ int main()
     gpio_init(GPIO_PIN_DIN);
     gpio_init(GPIO_PIN_CLK);
     gpio_init(GPIO_PIN_LOAD);
+    gpio_init(PICO_DEFAULT_LED_PIN);
 
     gpio_set_dir(GPIO_PIN_DIN, GPIO_OUT);
     gpio_set_dir(GPIO_PIN_CLK, GPIO_OUT);
     gpio_set_dir(GPIO_PIN_LOAD, GPIO_OUT);
+    gpio_set_dir(PICO_DEFAULT_LED_PIN, GPIO_OUT);
 
     gpio_put(GPIO_PIN_DIN, 0);
     gpio_put(GPIO_PIN_CLK, 0);
     gpio_put(GPIO_PIN_LOAD, 1);
+    gpio_put(PICO_DEFAULT_LED_PIN, 0);
 
     for (uint8_t i = 0; i < 15; i++)
     {
