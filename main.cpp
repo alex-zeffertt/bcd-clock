@@ -12,8 +12,8 @@
 // GPIO PIN numbers
 enum
 {
-    GPIO_PIN_DIN = 17,
-    GPIO_PIN_CLK = 16,
+    GPIO_PIN_DIN = 16,
+    GPIO_PIN_CLK = 17,
     GPIO_PIN_LOAD = 15,
 };
 
