@@ -100,6 +100,17 @@ void write_col(uint8_t col, uint8_t bits)
     write_reg(DIGIT0 + col, (bits >> 1) + ((bits & 1) << 7));
 }
 
+uint8_t digit2col(uint8_t decimal_digit)
+{
+    auto b0 = decimal_digit & 1;
+    auto b1 = decimal_digit & 2;
+    auto b2 = decimal_digit & 4;
+    auto b3 = decimal_digit & 8;
+
+    // Use every other LED for readability
+    return (b3 << 3) + (b2 << 2) + (b1 << 1) + (b0 << 0);
+}
+
 void tick()
 {
     static int state = UPDATE_TIME;
@@ -149,12 +160,16 @@ void tick()
     }
 
     // Display
-    write_col(0, (seconds % 10) ^ ((state == SET_SECONDS || state == SELECT_SECONDS) ? 0xf0 : 0));
-    write_col(1, (seconds / 10) ^ ((state == SET_SECONDS || state == SELECT_SECONDS) ? 0xf0 : 0));
-    write_col(3, (minutes % 10) ^ ((state == SET_MINUTES || state == SELECT_MINUTES) ? 0xf0 : 0));
-    write_col(4, (minutes / 10) ^ ((state == SET_MINUTES || state == SELECT_MINUTES) ? 0xf0 : 0));
-    write_col(6, (hours % 10) ^ ((state == SET_HOURS || state == SELECT_HOURS) ? 0xf0 : 0));
-    write_col(7, (hours / 10) ^ ((state == SET_HOURS || state == SELECT_HOURS) ? 0xf0 : 0));
+    bool setting_seconds = (state == SET_SECONDS || state == SELECT_SECONDS);
+    bool setting_minutes = (state == SET_MINUTES || state == SELECT_MINUTES);
+    bool setting_hours = (state == SET_HOURS || state == SELECT_HOURS);
+
+    write_col(0, digit2col(seconds % 10) | (setting_seconds << 7));
+    write_col(1, digit2col(seconds / 10) | (setting_seconds << 7));
+    write_col(3, digit2col(minutes % 10) | (setting_minutes << 7));
+    write_col(4, digit2col(minutes / 10) | (setting_minutes << 7));
+    write_col(6, digit2col(hours % 10) | (setting_hours << 7));
+    write_col(7, digit2col(hours / 10) | (setting_hours << 7));
 }
 
 int main()
