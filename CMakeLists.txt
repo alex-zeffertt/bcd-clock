@@ -1,34 +1,3 @@
-#Building:
-#
-#  sudo apt install cmake gcc-arm-none-eabi libnewlib-arm-none-eabi libstdc++-arm-none-eabi-newlib
-#
-#  gh repo clone raspberrypi/pico-sdk
-#  gh repo clone raspberrypi/picotool
-#
-#  cd picotool
-#  git submodule update --init --recursive
-#  PICO_SDK_PATH=$(pwd)/../pico-sdk cmake -S . -B build
-#  (cd build; make)
-#  cd -
-#
-#  cd pico-sdk
-#  git submodule update --init --recursive
-#  PICOTOOL_FETCH_FROM_GIT_PATH=$(pwd)/../picotool cmake -S. -B build
-#  (cd build; make)
-#  cd -
-#
-#  PICOTOOL_FETCH_FROM_GIT_PATH=$(pwd)/picotool cmake -S . -B build
-#  (cd build /; make)
-#
-#Installation:
-#
-#  Hold down bootsel
-#  Connect USB
-#  Release bootesl
-#  Copy build / bcd_clock.uf2 to new storage device
-#  Eject new storage
-#  power - cycle RP2040
-
 cmake_minimum_required(VERSION 3.12)
 
 include(pico-sdk/pico_sdk_init.cmake)
