@@ -107,8 +107,12 @@ uint8_t digit2col(uint8_t decimal_digit)
     auto b2 = decimal_digit & 4;
     auto b3 = decimal_digit & 8;
 
+#if 0
     // Use every other LED for readability
     return (b3 << 3) + (b2 << 2) + (b1 << 1) + (b0 << 0);
+#else
+    return decimal_digit;
+#endif
 }
 
 void tick()
@@ -205,7 +209,7 @@ int main()
     write_reg(SCAN_LIMIT, 7);
 
     // Medium intensity
-    write_reg(INTENSITY, 0x7);
+    write_reg(INTENSITY, 0xf);
 
     // No segment (col) decode for any rows (digits)
     write_reg(DECODE_MODE, 0);
