@@ -1,40 +1,17 @@
 #include <pico/stdlib.h>
 #include <cstdint>
-#include <cmath>
-#include "hardware/gpio.h"
 #include "hardware/sync.h"
 #include "hardware/structs/ioqspi.h"
 #include "hardware/structs/sio.h"
+#include "Max7219.h"
 
 // Must be power of two
 #define TICK_HZ 8
 
 // GPIO PIN numbers
-enum
-{
-    GPIO_PIN_DIN = 16,
-    GPIO_PIN_CLK = 17,
-    GPIO_PIN_LOAD = 15,
-};
-
-// Addresses
-enum
-{
-    NOOP = 0,
-    DIGIT0 = 1,
-    DIGIT1 = 2,
-    DIGIT2 = 3,
-    DIGIT3 = 4,
-    DIGIT4 = 5,
-    DIGIT5 = 6,
-    DIGIT6 = 7,
-    DIGIT7 = 8,
-    DECODE_MODE = 9,
-    INTENSITY = 10,
-    SCAN_LIMIT = 11,
-    SHUTDOWN = 12,
-    DISPLAY_TEST = 15,
-};
+#define GPIO_PIN_DIN 16
+#define GPIO_PIN_CLK 17
+#define GPIO_PIN_LOAD 15
 
 // States
 enum
@@ -68,36 +45,17 @@ bool __no_inline_not_in_flash_func(get_bootsel_button)()
     return button_state;
 }
 
-void write(uint16_t val)
-{
-    gpio_put(GPIO_PIN_LOAD, 0);
-    sleep_us(1);
-
-    for (int bit = 15; bit >= 0; bit--)
-    {
-        gpio_put(GPIO_PIN_CLK, 0);
-        gpio_put(GPIO_PIN_DIN, (val >> bit) & 1);
-        sleep_us(1);
-        gpio_put(GPIO_PIN_CLK, 1);
-        sleep_us(1);
-        gpio_put(GPIO_PIN_CLK, 0);
-    }
-
-    gpio_put(GPIO_PIN_LOAD, 1);
-}
-
-void write_reg(uint8_t addr, uint8_t val)
-{
-    uint16_t _val = val;
-    _val += ((uint16_t)addr) << 8;
-    write(_val);
-}
-
-void write_col(uint8_t col, uint8_t bits)
+void write_col(Max7219 &max7219, uint8_t col, uint8_t bits)
 {
     // When wiring I had assumed SEGA-SEGG were 0-6 and SEGDP was 7
     // But it turns out SEGA-SEGG is 1-7 and SEGDP is 0
-    write_reg(DIGIT0 + col, (bits >> 1) + ((bits & 1) << 7));
+    uint8_t val = (bits >> 1) + ((bits & 1) << 7);
+
+    // The DIGITX addresses are consecutive
+    uint8_t base = static_cast<uint8_t>(Max7219::Address::DIGIT0);
+    auto addr = static_cast<Max7219::Address>(base + col);
+
+    max7219.write_reg(addr, val);
 }
 
 uint8_t digit2col(uint8_t decimal_digit)
@@ -115,7 +73,7 @@ uint8_t digit2col(uint8_t decimal_digit)
 #endif
 }
 
-void tick()
+void tick(Max7219 &max7219)
 {
     static int state = UPDATE_TIME;
     static uint64_t bootsel_tickcount = 0;
@@ -168,51 +126,44 @@ void tick()
     bool setting_minutes = (state == SET_MINUTES || state == SELECT_MINUTES);
     bool setting_hours = (state == SET_HOURS || state == SELECT_HOURS);
 
-    write_col(0, digit2col(seconds % 10) | (setting_seconds << 7));
-    write_col(1, digit2col(seconds / 10) | (setting_seconds << 7));
-    write_col(3, digit2col(minutes % 10) | (setting_minutes << 7));
-    write_col(4, digit2col(minutes / 10) | (setting_minutes << 7));
-    write_col(6, digit2col(hours % 10) | (setting_hours << 7));
-    write_col(7, digit2col(hours / 10) | (setting_hours << 7));
+    write_col(max7219, 0, digit2col(seconds % 10) | (setting_seconds << 7));
+    write_col(max7219, 1, digit2col(seconds / 10) | (setting_seconds << 7));
+    write_col(max7219, 3, digit2col(minutes % 10) | (setting_minutes << 7));
+    write_col(max7219, 4, digit2col(minutes / 10) | (setting_minutes << 7));
+    write_col(max7219, 6, digit2col(hours % 10) | (setting_hours << 7));
+    write_col(max7219, 7, digit2col(hours / 10) | (setting_hours << 7));
 }
 
 int main()
 {
-    gpio_init(GPIO_PIN_DIN);
-    gpio_init(GPIO_PIN_CLK);
-    gpio_init(GPIO_PIN_LOAD);
+    Max7219 max7219(GPIO_PIN_DIN, GPIO_PIN_CLK, GPIO_PIN_LOAD);
+
     gpio_init(PICO_DEFAULT_LED_PIN);
 
-    gpio_set_dir(GPIO_PIN_DIN, GPIO_OUT);
-    gpio_set_dir(GPIO_PIN_CLK, GPIO_OUT);
-    gpio_set_dir(GPIO_PIN_LOAD, GPIO_OUT);
     gpio_set_dir(PICO_DEFAULT_LED_PIN, GPIO_OUT);
 
-    gpio_put(GPIO_PIN_DIN, 0);
-    gpio_put(GPIO_PIN_CLK, 0);
-    gpio_put(GPIO_PIN_LOAD, 1);
     gpio_put(PICO_DEFAULT_LED_PIN, 0);
 
     // Turn all LEDs on
-    write_reg(DISPLAY_TEST, 1);
+    max7219.write_reg(Max7219::Address::DISPLAY_TEST, 1);
     sleep_ms(500);
-    write_reg(DISPLAY_TEST, 0);
+    max7219.write_reg(Max7219::Address::DISPLAY_TEST, 0);
     sleep_ms(500);
 
     for (uint8_t col = 0; col < 8; col++)
-        write_col(col, 0);
+        write_col(max7219, col, 0);
 
     // Normal operation
-    write_reg(SHUTDOWN, 1);
+    max7219.write_reg(Max7219::Address::SHUTDOWN, 1);
 
     // All 8 rows (digits)
-    write_reg(SCAN_LIMIT, 7);
+    max7219.write_reg(Max7219::Address::SCAN_LIMIT, 7);
 
     // Medium intensity
-    write_reg(INTENSITY, 0xf);
+    max7219.write_reg(Max7219::Address::INTENSITY, 0xf);
 
     // No segment (col) decode for any rows (digits)
-    write_reg(DECODE_MODE, 0);
+    max7219.write_reg(Max7219::Address::DECODE_MODE, 0);
 
     absolute_time_t now = get_absolute_time();
 
@@ -223,7 +174,7 @@ int main()
 
         sleep_until(next);
 
-        tick();
+        tick(max7219);
 
         now = next;
     }
