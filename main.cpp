@@ -4,6 +4,7 @@
 #include "hardware/structs/ioqspi.h"
 #include "hardware/structs/sio.h"
 #include "Max7219.h"
+#include "Kwm30881.h"
 
 // Must be power of two
 #define TICK_HZ 8
@@ -45,35 +46,7 @@ bool __no_inline_not_in_flash_func(get_bootsel_button)()
     return button_state;
 }
 
-void write_col(Max7219 &max7219, uint8_t col, uint8_t bits)
-{
-    // When wiring I had assumed SEGA-SEGG were 0-6 and SEGDP was 7
-    // But it turns out SEGA-SEGG is 1-7 and SEGDP is 0
-    uint8_t val = (bits >> 1) + ((bits & 1) << 7);
-
-    // The DIGITX addresses are consecutive
-    uint8_t base = static_cast<uint8_t>(Max7219::Address::DIGIT0);
-    auto addr = static_cast<Max7219::Address>(base + col);
-
-    max7219.write_reg(addr, val);
-}
-
-uint8_t digit2col(uint8_t decimal_digit)
-{
-    auto b0 = decimal_digit & 1;
-    auto b1 = decimal_digit & 2;
-    auto b2 = decimal_digit & 4;
-    auto b3 = decimal_digit & 8;
-
-#if 0
-    // Use every other LED for readability
-    return (b3 << 3) + (b2 << 2) + (b1 << 1) + (b0 << 0);
-#else
-    return decimal_digit;
-#endif
-}
-
-void tick(Max7219 &max7219)
+void tick(Kwm30881 &kwm30881)
 {
     static int state = UPDATE_TIME;
     static uint64_t bootsel_tickcount = 0;
@@ -126,44 +99,23 @@ void tick(Max7219 &max7219)
     bool setting_minutes = (state == SET_MINUTES || state == SELECT_MINUTES);
     bool setting_hours = (state == SET_HOURS || state == SELECT_HOURS);
 
-    write_col(max7219, 0, digit2col(seconds % 10) | (setting_seconds << 7));
-    write_col(max7219, 1, digit2col(seconds / 10) | (setting_seconds << 7));
-    write_col(max7219, 3, digit2col(minutes % 10) | (setting_minutes << 7));
-    write_col(max7219, 4, digit2col(minutes / 10) | (setting_minutes << 7));
-    write_col(max7219, 6, digit2col(hours % 10) | (setting_hours << 7));
-    write_col(max7219, 7, digit2col(hours / 10) | (setting_hours << 7));
+    kwm30881.write_col(0, (seconds % 10) | (setting_seconds << 7));
+    kwm30881.write_col(1, (seconds / 10) | (setting_seconds << 7));
+    kwm30881.write_col(3, (minutes % 10) | (setting_minutes << 7));
+    kwm30881.write_col(4, (minutes / 10) | (setting_minutes << 7));
+    kwm30881.write_col(6, (hours % 10) | (setting_hours << 7));
+    kwm30881.write_col(7, (hours / 10) | (setting_hours << 7));
 }
 
 int main()
 {
     Max7219 max7219(GPIO_PIN_DIN, GPIO_PIN_CLK, GPIO_PIN_LOAD);
+    Kwm30881 kwm30881(max7219);
 
+    // Use the default LED to show when the bootsel button is pressed
     gpio_init(PICO_DEFAULT_LED_PIN);
-
     gpio_set_dir(PICO_DEFAULT_LED_PIN, GPIO_OUT);
-
     gpio_put(PICO_DEFAULT_LED_PIN, 0);
-
-    // Turn all LEDs on
-    max7219.write_reg(Max7219::Address::DISPLAY_TEST, 1);
-    sleep_ms(500);
-    max7219.write_reg(Max7219::Address::DISPLAY_TEST, 0);
-    sleep_ms(500);
-
-    for (uint8_t col = 0; col < 8; col++)
-        write_col(max7219, col, 0);
-
-    // Normal operation
-    max7219.write_reg(Max7219::Address::SHUTDOWN, 1);
-
-    // All 8 rows (digits)
-    max7219.write_reg(Max7219::Address::SCAN_LIMIT, 7);
-
-    // Medium intensity
-    max7219.write_reg(Max7219::Address::INTENSITY, 0xf);
-
-    // No segment (col) decode for any rows (digits)
-    max7219.write_reg(Max7219::Address::DECODE_MODE, 0);
 
     absolute_time_t now = get_absolute_time();
 
@@ -174,7 +126,7 @@ int main()
 
         sleep_until(next);
 
-        tick(max7219);
+        tick(kwm30881);
 
         now = next;
     }
