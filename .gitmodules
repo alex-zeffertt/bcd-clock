@@ -1,6 +1,7 @@
 [submodule "picotool"]
 	path = picotool
 	url = https://github.com/raspberrypi/picotool.git
+	ignore = dirty
 [submodule "pico-sdk"]
 	path = pico-sdk
 	url = https://github.com/raspberrypi/pico-sdk.git
