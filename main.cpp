@@ -1,12 +1,9 @@
-#include <pico/stdlib.h>
 #include <cstdint>
-#include "hardware/sync.h"
-#include "hardware/structs/ioqspi.h"
-#include "hardware/structs/sio.h"
 #include "Max7219.h"
 #include "Kwm30881.h"
+#include "Bootsel.h"
 
-// Must be power of two
+// State machine tickrate: this is the rate at which we check for bootsel presses
 #define TICK_HZ 8
 
 // GPIO PIN numbers
@@ -27,26 +24,7 @@ enum
     NUM_STATES,
 };
 
-bool __no_inline_not_in_flash_func(get_bootsel_button)()
-{
-    const uint CS_PIN_INDEX = 1;
-    uint32_t flags = save_and_disable_interrupts();
-
-    hw_write_masked(&ioqspi_hw->io[CS_PIN_INDEX].ctrl, GPIO_OVERRIDE_LOW << IO_QSPI_GPIO_QSPI_SS_CTRL_OEOVER_LSB,
-                    IO_QSPI_GPIO_QSPI_SS_CTRL_OEOVER_BITS);
-
-#define CS_BIT (1u << 1)
-    bool button_state = !(sio_hw->gpio_hi_in & CS_BIT);
-
-    hw_write_masked(&ioqspi_hw->io[CS_PIN_INDEX].ctrl, GPIO_OVERRIDE_NORMAL << IO_QSPI_GPIO_QSPI_SS_CTRL_OEOVER_LSB,
-                    IO_QSPI_GPIO_QSPI_SS_CTRL_OEOVER_BITS);
-
-    restore_interrupts(flags);
-
-    return button_state;
-}
-
-void tick(Kwm30881 &kwm30881)
+void tick(Kwm30881 &kwm30881, Bootsel &button)
 {
     static int state = UPDATE_TIME;
     static uint64_t bootsel_tickcount = 0;
@@ -57,8 +35,7 @@ void tick(Kwm30881 &kwm30881)
     static bool bootsel_prev = false;
 
     // Workout if bootsel button pressed and for how long
-    bool bootsel = get_bootsel_button();
-    gpio_put(PICO_DEFAULT_LED_PIN, bootsel);
+    bool bootsel = button.get();
     bootsel_tickcount = bootsel ? (bootsel_tickcount + 1) : 0;
 
     // State transitions
@@ -111,11 +88,7 @@ int main()
 {
     Max7219 max7219(GPIO_PIN_DIN, GPIO_PIN_CLK, GPIO_PIN_LOAD);
     Kwm30881 kwm30881(max7219);
-
-    // Use the default LED to show when the bootsel button is pressed
-    gpio_init(PICO_DEFAULT_LED_PIN);
-    gpio_set_dir(PICO_DEFAULT_LED_PIN, GPIO_OUT);
-    gpio_put(PICO_DEFAULT_LED_PIN, 0);
+    Bootsel button;
 
     absolute_time_t now = get_absolute_time();
 
@@ -126,7 +99,7 @@ int main()
 
         sleep_until(next);
 
-        tick(kwm30881);
+        tick(kwm30881, button);
 
         now = next;
     }

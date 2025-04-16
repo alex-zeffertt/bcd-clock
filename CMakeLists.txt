@@ -8,7 +8,7 @@ set(CMAKE_CXX_STANDARD 17)
 
 pico_sdk_init()
 
-add_executable(bcd_clock main.cpp)
+add_executable(bcd_clock main.cpp Bootsel.cpp)
 
 pico_add_extra_outputs(bcd_clock)
 
