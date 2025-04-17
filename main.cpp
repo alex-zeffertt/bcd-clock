@@ -2,6 +2,7 @@
 #include "Max7219.h"
 #include "Kwm30881.h"
 #include "Bootsel.h"
+#include "pico/bootrom.h"
 
 // State machine tickrate: this is the rate at which we check for bootsel presses
 #define TICK_HZ 8
@@ -36,11 +37,24 @@ void tick(Kwm30881 &kwm30881, Bootsel &button)
 
     // Workout if bootsel button pressed and for how long
     bool bootsel = button.get();
-    bootsel_tickcount = bootsel ? (bootsel_tickcount + 1) : 0;
-
-    // State transitions
-    state = (bootsel && !bootsel_prev) ? ((state + 1) % NUM_STATES) : state;
+    bool bootsel_posedge = bootsel && !bootsel_prev;
+    bool bootsel_negedge = bootsel_prev && bootsel;
+    bootsel_tickcount = bootsel_posedge ? 0 : (bootsel_tickcount + 1);
     bootsel_prev = bootsel;
+
+    // Handle state changes
+    if (state == UPDATE_TIME)
+    {
+        if (bootsel_negedge)
+        {
+            if (bootsel_tickcount > TICK_HZ)
+                reset_usb_boot(0, 0); // Upgrade
+            else
+                state = SELECT_HOURS;
+        }
+    }
+    else if (bootsel_posedge)
+        state = (state + 1) % NUM_STATES;
 
     // Handle states
     switch (state)
