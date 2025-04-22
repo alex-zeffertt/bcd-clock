@@ -16,4 +16,3 @@ target_link_libraries(bcd_clock pico_stdlib)
 
 pico_enable_stdio_usb(bcd_clock 1)
 pico_enable_stdio_uart(bcd_clock 0)
-

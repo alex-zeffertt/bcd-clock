@@ -26,8 +26,14 @@ enum
     READY,
 };
 
+static const char *state_names[] = {
+    "UPDATE_TIME", "SELECT_HOURS",   "SET_HOURS",   "SELECT_MINUTES",
+    "SET_MINUTES", "SELECT_SECONDS", "SET_SECONDS", "READY",
+};
+
 void tick(Kwm30881 &kwm30881, Bootsel &button)
 {
+    static int prev_state = UPDATE_TIME;
     static int state = UPDATE_TIME;
     static uint64_t tick = 0;
     static uint64_t bootsel_posedge_tick = 0;
@@ -109,6 +115,13 @@ void tick(Kwm30881 &kwm30881, Bootsel &button)
 
     default:
         break;
+    }
+
+    // Debug output on state change
+    if (prev_state != state)
+    {
+        printf("Changing state %s -> %s\n", state_names[prev_state], state_names[state]);
+        prev_state = state;
     }
 
     // Display
