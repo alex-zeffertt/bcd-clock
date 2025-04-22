@@ -3,6 +3,7 @@
 #include "Kwm30881.h"
 #include "Bootsel.h"
 #include "pico/bootrom.h"
+#include <stdio.h>
 
 // State machine tickrate: this is the rate at which we check for bootsel presses
 #define TICK_HZ 8
@@ -130,6 +131,8 @@ int main()
     Bootsel button;
 
     absolute_time_t now = get_absolute_time();
+
+    stdio_usb_init();
 
     while (true)
     {
