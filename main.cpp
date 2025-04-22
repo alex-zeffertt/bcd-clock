@@ -22,63 +22,88 @@ enum
     SET_MINUTES,
     SELECT_SECONDS,
     SET_SECONDS,
-    NUM_STATES,
+    READY,
 };
 
 void tick(Kwm30881 &kwm30881, Bootsel &button)
 {
     static int state = UPDATE_TIME;
-    static uint64_t bootsel_tickcount = 0;
+    static uint64_t tick = 0;
+    static uint64_t bootsel_posedge_tick = 0;
+    static uint64_t bootsel_negedge_tick = 0;
     static int hours = 0;
     static int minutes = 0;
     static int seconds = 0;
     static int subtick = 0;
     static bool bootsel_prev = false;
 
-    // Workout if bootsel button pressed and for how long
+    // Update time in ticks
+    tick++;
+
+    // Workout if bootsel button pressed
     bool bootsel = button.get();
     bool bootsel_posedge = bootsel && !bootsel_prev;
-    bool bootsel_negedge = bootsel_prev && bootsel;
-    bootsel_tickcount = bootsel_posedge ? 0 : (bootsel_tickcount + 1);
+    bool bootsel_negedge = bootsel_prev && !bootsel;
     bootsel_prev = bootsel;
-
-    // Handle state changes
-    if (state == UPDATE_TIME)
-    {
-        if (bootsel_negedge)
-        {
-            if (bootsel_tickcount > TICK_HZ)
-                reset_usb_boot(0, 0); // Upgrade
-            else
-                state = SELECT_HOURS;
-        }
-    }
-    else if (bootsel_posedge)
-        state = (state + 1) % NUM_STATES;
+    if (bootsel_posedge)
+        bootsel_posedge_tick = tick;
+    if (bootsel_negedge)
+        bootsel_negedge_tick = tick;
 
     // Handle states
     switch (state)
     {
-    case SET_HOURS:
-        if ((bootsel_tickcount & 3) == 3)
-            hours = (hours + 1) % 24;
-        break;
-
-    case SET_MINUTES:
-        if ((bootsel_tickcount & 3) == 3)
-            minutes = (minutes + 1) % 60;
-        break;
-
-    case SET_SECONDS:
-        if ((bootsel_tickcount & 3) == 3)
-            seconds = (seconds + 1) % 60;
-        break;
-
     case UPDATE_TIME:
         subtick = (subtick + 1) % TICK_HZ;
         seconds = (subtick) ? seconds : ((seconds + 1) % 60);
         minutes = (seconds || subtick) ? minutes : ((minutes + 1) % 60);
         hours = (minutes || seconds || subtick) ? hours : ((hours + 1) % 24);
+
+        if (bootsel && tick - bootsel_posedge_tick > TICK_HZ)
+            reset_usb_boot(0, 0); // Upgrade
+        if (bootsel_negedge)
+            state = SELECT_HOURS;
+        break;
+
+    case SELECT_HOURS:
+        if (bootsel_posedge)
+            state = SET_HOURS;
+        break;
+
+    case SET_HOURS:
+        if (bootsel && ((tick - bootsel_posedge_tick) & 3) == 3)
+            hours = (hours + 1) % 24;
+        if (bootsel_posedge)
+            state = SELECT_MINUTES;
+        break;
+
+    case SELECT_MINUTES:
+        if (bootsel_posedge)
+            state = SET_MINUTES;
+        break;
+
+    case SET_MINUTES:
+        if (bootsel && ((tick - bootsel_posedge_tick) & 3) == 3)
+            minutes = (minutes + 1) % 60;
+        if (bootsel_posedge)
+            state = SELECT_SECONDS;
+        break;
+
+    case SELECT_SECONDS:
+        if (bootsel_posedge)
+            state = SET_SECONDS;
+        break;
+
+    case SET_SECONDS:
+        if (bootsel && ((tick - bootsel_posedge_tick) & 3) == 3)
+            seconds = (seconds + 1) % 60;
+        if (bootsel_posedge)
+            state = READY;
+        break;
+
+    case READY:
+        if (bootsel_negedge)
+            state = UPDATE_TIME;
         break;
 
     default:
