@@ -48,12 +48,10 @@ picocom -b 115200 /dev/ttyACM0
 Try pressing a few buttons to get output
 
 ```
-Changing state UPDATE_TIME -> SELECT_HOURS
-Changing state SELECT_HOURS -> SET_HOURS
-Changing state SET_HOURS -> SELECT_MINUTES
-Changing state SELECT_MINUTES -> SET_MINUTES
-Changing state SET_MINUTES -> SELECT_SECONDS
-Changing state SELECT_SECONDS -> SET_SECONDS
+Changing state UPDATE_TIME -> SET_HOURS
+Changing state SET_HOURS -> SET_MINUTES
+Changing state SET_MINUTES -> SET_SECONDS
+Changing state SET_SECONDS -> UPDATE_TIME
 ```
 
 Exit with `C-a C-x`
