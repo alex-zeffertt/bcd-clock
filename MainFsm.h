@@ -158,5 +158,3 @@ class MainFsm : public Fsm<MainFsm, State, Event>
     int subtick = 0;
     bool bootsel_prev = false;
 };
-
-const char *state_names[] = {"UPDATE_TIME", "SETTING_HOURS", "SETTING_MINUTES", "SETTING_SECONDS", "UPGRADING"};
