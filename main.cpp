@@ -13,15 +13,6 @@
 #define GPIO_PIN_CLK 17
 #define GPIO_PIN_LOAD 15
 
-// For debug
-const char *state_str[] = {
-    [static_cast<int>(State::UPDATE_TIME)] = "UPDATE_TIME",
-    [static_cast<int>(State::SETTING_HOURS)] = "SETTING_HOURS",
-    [static_cast<int>(State::SETTING_MINUTES)] = "SETTING_MINUTES",
-    [static_cast<int>(State::SETTING_SECONDS)] = "SETTING_SECONDS",
-    [static_cast<int>(State::UPGRADING)] = "UPGRADING",
-};
-
 int main()
 {
     Max7219 max7219(GPIO_PIN_DIN, GPIO_PIN_CLK, GPIO_PIN_LOAD);
@@ -29,7 +20,7 @@ int main()
     Bootsel button;
     MainFsm fsm(kwm30881, button, TICK_HZ);
     absolute_time_t now = get_absolute_time();
-    int old_state = static_cast<int>(fsm.get_state());
+    MainFsm::State old_state = fsm.get_state();
 
     stdio_usb_init();
 
@@ -40,12 +31,12 @@ int main()
 
         sleep_until(next);
 
-        fsm.inject_event(Event::TICK);
+        fsm.inject_event(MainFsm::EV_TICK);
 
-        int new_state = static_cast<int>(fsm.get_state());
+        MainFsm::State new_state = fsm.get_state();
         if (new_state != old_state)
         {
-            printf("Changing state %s -> %s\n", state_str[old_state], state_str[new_state]);
+            printf("Changing state %s -> %s\n", MainFsm::state_names[old_state], MainFsm::state_names[new_state]);
             new_state = old_state;
         }
 

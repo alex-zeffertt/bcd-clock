@@ -4,51 +4,24 @@
 #include "Bootsel.h"
 #include "Kwm30881.h"
 #include "Fsm.h"
+#include "MainFsmTable.h"
 
-enum class State
-{
-    UPDATE_TIME,
-    SETTING_HOURS,
-    SETTING_MINUTES,
-    SETTING_SECONDS,
-    UPGRADING,
-};
-
-enum class Event
-{
-    TICK,
-    BUTTON_RELEASED,
-    BUTTON_HELD_1SEC,
-    NULL_EVENT
-};
-
-class MainFsm : public Fsm<MainFsm, State, Event>
+class MainFsm : public MainFsmTable, public Fsm<MainFsmTable>
 {
   public:
     MainFsm(Kwm30881 &kwm30881, Bootsel &button, uint64_t tick_hz)
         : _kwm30881(kwm30881), _button(button), _tick_hz(tick_hz)
     {
-        set_initial(State::UPDATE_TIME);
-    }
-
-    // provide the transition table for this->inject_transition(event, context) to use
-    static const std::map<Base::Key, Base::Value> &transitions()
-    {
-        static const std::map<Base::Key, Base::Value> tbl = {
-            {{Event::TICK, State::UPDATE_TIME}, {&MainFsm::update_time_tick, State::UPDATE_TIME}},
-            {{Event::TICK, State::SETTING_HOURS}, {&MainFsm::setting_hours_tick, State::SETTING_HOURS}},
-            {{Event::TICK, State::SETTING_MINUTES}, {&MainFsm::setting_minutes_tick, State::SETTING_MINUTES}},
-            {{Event::TICK, State::SETTING_SECONDS}, {&MainFsm::setting_seconds_tick, State::SETTING_SECONDS}},
-            {{Event::BUTTON_RELEASED, State::UPDATE_TIME}, {nullptr, State::SETTING_HOURS}},
-            {{Event::BUTTON_RELEASED, State::SETTING_HOURS}, {nullptr, State::SETTING_MINUTES}},
-            {{Event::BUTTON_RELEASED, State::SETTING_MINUTES}, {nullptr, State::SETTING_SECONDS}},
-            {{Event::BUTTON_RELEASED, State::SETTING_SECONDS}, {nullptr, State::UPDATE_TIME}},
-            {{Event::BUTTON_HELD_1SEC, State::UPDATE_TIME}, {&MainFsm::start_upgrade, State::UPGRADING}},
-        };
-        return tbl;
+        set_initial(ST_UPDATE_TIME);
     }
 
   private:
+    Event handle_action(Action action, void *context) override
+    {
+        auto func = _handlers[action];
+        return func ? ((this)->*func)(context) : EV_NULL_EVENT;
+    }
+
     void common_tick(bool &bootsel, bool &bootsel_negedge)
     {
         tick++;
@@ -66,10 +39,10 @@ class MainFsm : public Fsm<MainFsm, State, Event>
         common_tick(bootsel, bootsel_negedge);
 
         if (bootsel && tick - bootsel_posedge_tick > _tick_hz)
-            return Event::BUTTON_HELD_1SEC;
+            return EV_BUTTON_HELD_1SEC;
 
         if (bootsel_negedge)
-            return Event::BUTTON_RELEASED;
+            return EV_BUTTON_RELEASED;
 
         // Update time
         subtick = (subtick + 1) % _tick_hz;
@@ -79,7 +52,7 @@ class MainFsm : public Fsm<MainFsm, State, Event>
 
         showtime(hours, minutes, seconds);
 
-        return Event::NULL_EVENT;
+        return EV_NULL_EVENT;
     }
 
     Event setting_hours_tick(void *context)
@@ -88,14 +61,14 @@ class MainFsm : public Fsm<MainFsm, State, Event>
         common_tick(bootsel, bootsel_negedge);
 
         if (bootsel_negedge)
-            return Event::BUTTON_RELEASED;
+            return EV_BUTTON_RELEASED;
 
         if (bootsel && (((tick - bootsel_posedge_tick) & 3) == 3))
             hours = (hours + 1) % 24;
 
         showtime(hours, minutes, seconds, true, false, false);
 
-        return Event::NULL_EVENT;
+        return EV_NULL_EVENT;
     }
 
     Event setting_minutes_tick(void *context)
@@ -104,14 +77,14 @@ class MainFsm : public Fsm<MainFsm, State, Event>
         common_tick(bootsel, bootsel_negedge);
 
         if (bootsel_negedge)
-            return Event::BUTTON_RELEASED;
+            return EV_BUTTON_RELEASED;
 
         if (bootsel && (((tick - bootsel_posedge_tick) & 3) == 3))
             minutes = (minutes + 1) % 60;
 
         showtime(hours, minutes, seconds, false, true, false);
 
-        return Event::NULL_EVENT;
+        return EV_NULL_EVENT;
     }
 
     Event setting_seconds_tick(void *context)
@@ -123,17 +96,17 @@ class MainFsm : public Fsm<MainFsm, State, Event>
             seconds = (seconds + 1) % 60;
 
         if (bootsel_negedge)
-            return Event::BUTTON_RELEASED;
+            return EV_BUTTON_RELEASED;
 
         showtime(hours, minutes, seconds, false, false, true);
 
-        return Event::NULL_EVENT;
+        return EV_NULL_EVENT;
     }
 
     Event start_upgrade(void *context)
     {
         reset_usb_boot(0, 0);
-        return Event::NULL_EVENT; // Never gets here
+        return EV_NULL_EVENT; // Never gets here
     }
 
     void showtime(uint64_t hours, uint64_t minutes, uint64_t seconds, bool hours_selected = false,
@@ -146,6 +119,17 @@ class MainFsm : public Fsm<MainFsm, State, Event>
         _kwm30881.write_col(6, (hours % 10) | (hours_selected << 7));
         _kwm30881.write_col(7, (hours / 10) | (hours_selected << 7));
     }
+
+    using Function = Event (MainFsm::*)(void *);
+    static constexpr const Function _handlers[NUM_ACTIONS] = {
+        [AC_IGNORE_EVENT] = nullptr,
+        [AC_UPDATE_TIME_TICK] = &MainFsm::update_time_tick,
+        [AC_SETTING_HOURS_TICK] = &MainFsm::setting_hours_tick,
+        [AC_SETTING_MINUTES_TICK] = &MainFsm::setting_minutes_tick,
+        [AC_SETTING_SECONDS_TICK] = &MainFsm::setting_seconds_tick,
+        [AC_START_UPGRADE] = &MainFsm::start_upgrade,
+        [AC_NO_ACTION] = nullptr,
+    };
 
     Kwm30881 &_kwm30881;
     Bootsel &_button;

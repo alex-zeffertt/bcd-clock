@@ -4,31 +4,33 @@
 #include <map>
 #include <utility>
 
-template <typename Derived, typename State, typename Event>
+template <typename Table>
 
 class Fsm
 {
   public:
-    using Base = Fsm;
-    using Action = Event (Derived::*)(void *);
-    using Key = std::pair<Event, State>;
-    using Value = std::pair<Action, State>;
+    using Event = int;
+    using State = int;
+    using Action = int;
 
     void inject_event(Event event, void *context = nullptr)
     {
         // loop until no more actions or NULL_EVENT
-        while (event != Event::NULL_EVENT)
+        while (event != Table::EV_NULL_EVENT)
         {
-            auto it = Derived::transitions().find(Key{event, _state});
-            if (it == Derived::transitions().end())
-                break;
+            auto [action, next_state] = Table::transitions[_state][event];
 
-            auto [action, next_state] = it->second;
-            if (action == nullptr)
-                event = Event::NULL_EVENT;
+            if (action == Table::AC_IGNORE_EVENT)
+            {
+                // Do not change state
+                event = Table::EV_NULL_EVENT;
+            }
             else
-                event = (static_cast<Derived *>(this)->*action)(context);
-            _state = next_state;
+            {
+                // Change state
+                event = handle_action(action, context);
+                _state = next_state;
+            }
         }
     }
 
@@ -38,10 +40,13 @@ class Fsm
     }
 
   protected:
+    virtual Event handle_action(Action action, void *context) = 0;
+
     void set_initial(State s)
     {
         _state = s;
     }
 
-    State _state{};
+  private:
+    State _state;
 };
