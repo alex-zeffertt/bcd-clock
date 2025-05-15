@@ -29,13 +29,13 @@ First time:
 * Hold down bootsel
 * Connect USB
 * Release bootesl
-* Copy `build/bcd_clock.uf2` to new USB storage device
+* Copy `build/src/bcd_clock.uf2` to new USB storage device
 
 Later times:
 
 * Make sure it is in the UPDATE_TIME state (i.e. time is changing every second)
 * Hold down bootsel for > 1 second
-* Copy `build/bcd_clock.uf2` to new USB storage device
+* Copy `build/src/bcd_clock.uf2` to new USB storage device
 
 # Debug
 
