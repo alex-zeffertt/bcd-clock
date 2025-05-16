@@ -72,8 +72,16 @@ Exit with `C-a C-x`
 
 (Created with `lib/fsm/tools/gen_graph -i src/MainFsmTable.h -c MainFsmTable -o src/MainFsmTable.png`)
 
-![alt text](src/MainFsmTable.png "MainFsmTable")
+![alt text](docs/MainFsmTable.png "MainFsmTable")
 
 ## Hardware
 
-TODO
+### Inventory
+
+Bought from pihut.com
+
+![alt text](docs/Inventory.png "Inventory")
+
+### Schematic
+
+![alt text](docs/Schematic.png "Schematic")
