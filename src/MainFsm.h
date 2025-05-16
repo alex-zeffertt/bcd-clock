@@ -45,7 +45,7 @@ class MainFsm : public MainFsmTable, public Fsm<MainFsmTable>
     Event setting_hours_tick(void *context)
     {
         bool button = common_tick();
-        if (button && (((tick - button_posedge_tick) % (_tick_hz / 2)) == 0))
+        if (button && (((tick - button_posedge_tick) % (_tick_hz / 2)) == 1))
             hours = (hours + 1) % 24;
 
         showtime(true, false, false);
@@ -56,7 +56,7 @@ class MainFsm : public MainFsmTable, public Fsm<MainFsmTable>
     Event setting_minutes_tick(void *context)
     {
         bool button = common_tick();
-        if (button && (((tick - button_posedge_tick) % (_tick_hz / 2)) == 0))
+        if (button && (((tick - button_posedge_tick) % (_tick_hz / 2)) == 1))
             minutes = (minutes + 1) % 60;
 
         showtime(false, true, false);
@@ -67,7 +67,7 @@ class MainFsm : public MainFsmTable, public Fsm<MainFsmTable>
     Event setting_seconds_tick(void *context)
     {
         bool button = common_tick();
-        if (button && (((tick - button_posedge_tick) % (_tick_hz / 2)) == 0))
+        if (button && (((tick - button_posedge_tick) % (_tick_hz / 2)) == 1))
             seconds = (seconds + 1) % 60;
 
         showtime(false, false, true);
