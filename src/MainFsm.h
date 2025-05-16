@@ -5,6 +5,7 @@
 #include "Kwm30881.h"
 #include "Fsm.h"
 #include "MainFsmTable.h"
+#include <cstdio>
 
 class MainFsm : public MainFsmTable, public Fsm<MainFsmTable>
 {
@@ -22,27 +23,13 @@ class MainFsm : public MainFsmTable, public Fsm<MainFsmTable>
         return func ? ((this)->*func)(context) : EV_NULL_EVENT;
     }
 
-    void common_tick(bool &bootsel, bool &bootsel_negedge)
-    {
-        tick++;
-        bootsel = _button.get();
-        bool bootsel_posedge = bootsel && !bootsel_prev;
-        bootsel_negedge = bootsel_prev && !bootsel;
-        bootsel_prev = bootsel;
-        if (bootsel_posedge)
-            bootsel_posedge_tick = tick;
-    }
+    // action handlers
 
     Event update_time_tick(void *context)
     {
-        bool bootsel, bootsel_negedge;
-        common_tick(bootsel, bootsel_negedge);
-
-        if (bootsel && tick - bootsel_posedge_tick > _tick_hz)
+        bool button = common_tick();
+        if (button && tick - button_posedge_tick > _tick_hz)
             return EV_BUTTON_HELD_1SEC;
-
-        if (bootsel_negedge)
-            return EV_BUTTON_RELEASED;
 
         // Update time
         subtick = (subtick + 1) % _tick_hz;
@@ -50,55 +37,40 @@ class MainFsm : public MainFsmTable, public Fsm<MainFsmTable>
         minutes = (seconds || subtick) ? minutes : ((minutes + 1) % 60);
         hours = (minutes || seconds || subtick) ? hours : ((hours + 1) % 24);
 
-        showtime(hours, minutes, seconds);
+        showtime();
 
         return EV_NULL_EVENT;
     }
 
     Event setting_hours_tick(void *context)
     {
-        bool bootsel, bootsel_negedge;
-        common_tick(bootsel, bootsel_negedge);
-
-        if (bootsel_negedge)
-            return EV_BUTTON_RELEASED;
-
-        if (bootsel && (((tick - bootsel_posedge_tick) & 3) == 3))
+        bool button = common_tick();
+        if (button && (((tick - button_posedge_tick) % (_tick_hz / 2)) == 0))
             hours = (hours + 1) % 24;
 
-        showtime(hours, minutes, seconds, true, false, false);
+        showtime(true, false, false);
 
         return EV_NULL_EVENT;
     }
 
     Event setting_minutes_tick(void *context)
     {
-        bool bootsel, bootsel_negedge;
-        common_tick(bootsel, bootsel_negedge);
-
-        if (bootsel_negedge)
-            return EV_BUTTON_RELEASED;
-
-        if (bootsel && (((tick - bootsel_posedge_tick) & 3) == 3))
+        bool button = common_tick();
+        if (button && (((tick - button_posedge_tick) % (_tick_hz / 2)) == 0))
             minutes = (minutes + 1) % 60;
 
-        showtime(hours, minutes, seconds, false, true, false);
+        showtime(false, true, false);
 
         return EV_NULL_EVENT;
     }
 
     Event setting_seconds_tick(void *context)
     {
-        bool bootsel, bootsel_negedge;
-        common_tick(bootsel, bootsel_negedge);
-
-        if (bootsel && (((tick - bootsel_posedge_tick) & 3) == 3))
+        bool button = common_tick();
+        if (button && (((tick - button_posedge_tick) % (_tick_hz / 2)) == 0))
             seconds = (seconds + 1) % 60;
 
-        if (bootsel_negedge)
-            return EV_BUTTON_RELEASED;
-
-        showtime(hours, minutes, seconds, false, false, true);
+        showtime(false, false, true);
 
         return EV_NULL_EVENT;
     }
@@ -109,8 +81,35 @@ class MainFsm : public MainFsmTable, public Fsm<MainFsmTable>
         return EV_NULL_EVENT; // Never gets here
     }
 
-    void showtime(uint64_t hours, uint64_t minutes, uint64_t seconds, bool hours_selected = false,
-                  bool minutes_selected = false, bool seconds_selected = false)
+    // Loggers
+
+    void log_event(Event event) const override
+    {
+        if (event != EV_TICK)
+            printf("Event: %s\n", event_names[event]);
+    }
+
+    void log_state(State oldstate, State newstate) const override
+    {
+        printf("State change: %s -> %s\n", state_names[oldstate], state_names[newstate]);
+    }
+
+    // Utiliies
+
+    // Returns state of button
+    bool common_tick()
+    {
+        tick++;
+        bool button = _button.get();
+        bool button_posedge = button && !button_prev;
+        button_prev = button;
+        if (button_posedge)
+            button_posedge_tick = tick;
+        return button;
+    }
+
+    // Updates display
+    void showtime(bool hours_selected = false, bool minutes_selected = false, bool seconds_selected = false)
     {
         _kwm30881.write_col(0, (seconds % 10) | (seconds_selected << 7));
         _kwm30881.write_col(1, (seconds / 10) | (seconds_selected << 7));
@@ -135,10 +134,10 @@ class MainFsm : public MainFsmTable, public Fsm<MainFsmTable>
     Bootsel &_button;
     const uint64_t _tick_hz;
     uint64_t tick = 0;
-    uint64_t bootsel_posedge_tick = 0;
+    uint64_t button_posedge_tick = 0;
     int hours = 0;
     int minutes = 0;
     int seconds = 0;
     int subtick = 0;
-    bool bootsel_prev = false;
+    bool button_prev = false;
 };

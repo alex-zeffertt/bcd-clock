@@ -48,10 +48,32 @@ picocom -b 115200 /dev/ttyACM0
 Try pressing a few buttons to get output
 
 ```
-Changing state UPDATE_TIME -> SET_HOURS
-Changing state SET_HOURS -> SET_MINUTES
-Changing state SET_MINUTES -> SET_SECONDS
-Changing state SET_SECONDS -> UPDATE_TIME
+Event: BUTTON_RELEASED
+State change: UPDATE_TIME -> SETTING_HOURS
+Event: BUTTON_RELEASED
+State change: SETTING_HOURS -> WAIT_CONFIRM1
+Event: BUTTON_RELEASED
+State change: WAIT_CONFIRM1 -> SETTING_MINUTES
+Event: BUTTON_RELEASED
+State change: SETTING_MINUTES -> WAIT_CONFIRM2
+Event: BUTTON_RELEASED
+State change: WAIT_CONFIRM2 -> SETTING_SECONDS
+Event: BUTTON_RELEASED
+State change: SETTING_SECONDS -> WAIT_CONFIRM3
+Event: BUTTON_RELEASED
+State change: WAIT_CONFIRM3 -> UPDATE_TIME
 ```
 
 Exit with `C-a C-x`
+
+# Design
+
+## Software
+
+(Created with `lib/fsm/tools/gen_graph -i src/MainFsmTable.h -c MainFsmTable -o src/MainFsmTable.png`)
+
+![alt text](src/MainFsmTable.png "MainFsmTable")
+
+## Hardware
+
+TODO

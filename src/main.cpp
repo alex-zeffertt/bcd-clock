@@ -1,11 +1,9 @@
-#include <cstdio>
-#include <cstdint>
 #include "Max7219.h"
 #include "Kwm30881.h"
 #include "Bootsel.h"
 #include "MainFsm.h"
 
-// State machine tickrate: this is the rate at which we check for bootsel presses
+// State machine tick rate
 #define TICK_HZ 8
 
 // GPIO PIN numbers
@@ -21,6 +19,7 @@ int main()
     MainFsm fsm(kwm30881, button, TICK_HZ);
     absolute_time_t now = get_absolute_time();
     MainFsm::State old_state = fsm.get_state();
+    bool button_prev = button.get();
 
     stdio_usb_init();
 
@@ -31,14 +30,17 @@ int main()
 
         sleep_until(next);
 
-        fsm.inject_event(MainFsm::EV_TICK);
-
-        MainFsm::State new_state = fsm.get_state();
-        if (new_state != old_state)
+        // Check for EV_BUTTON_RELEASED event
+        bool button_new = button.get();
+        if (button_prev != button_new)
         {
-            printf("Changing state %s -> %s\n", MainFsm::state_names[old_state], MainFsm::state_names[new_state]);
-            new_state = old_state;
+            if (button_prev)
+                fsm.inject_event(MainFsm::EV_BUTTON_RELEASED);
+            button_prev = button_new;
         }
+
+        // Inject EV_TICK event
+        fsm.inject_event(MainFsm::EV_TICK);
 
         now = next;
     }
