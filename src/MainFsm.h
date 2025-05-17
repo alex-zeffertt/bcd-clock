@@ -7,7 +7,7 @@
 #include "MainFsmTable.h"
 #include <cstdio>
 
-class MainFsm : public MainFsmTable, public Fsm<MainFsmTable>
+class MainFsm : public MainFsmTable, public Fsm<MainFsm>
 {
   public:
     MainFsm(Kwm30881 &kwm30881, Bootsel &button, uint64_t tick_hz)
@@ -17,7 +17,7 @@ class MainFsm : public MainFsmTable, public Fsm<MainFsmTable>
     }
 
   private:
-    Event handle_action(Action action, void *context) override
+    Event handle_action(Action action, void *context)
     {
         auto func = _handlers[action];
         return func ? ((this)->*func)(context) : EV_NULL_EVENT;
@@ -83,13 +83,13 @@ class MainFsm : public MainFsmTable, public Fsm<MainFsmTable>
 
     // Loggers
 
-    void log_event(Event event) const override
+    void log_event(Event event) const
     {
         if (event != EV_TICK)
             printf("Event: %s\n", event_names[event]);
     }
 
-    void log_state(State oldstate, State newstate) const override
+    void log_state(State oldstate, State newstate) const
     {
         printf("State change: %s -> %s\n", state_names[oldstate], state_names[newstate]);
     }
@@ -140,4 +140,8 @@ class MainFsm : public MainFsmTable, public Fsm<MainFsmTable>
     int seconds = 0;
     int subtick = 0;
     bool button_prev = false;
+
+    // Allow Fsm to call private functions handle_action, log_event, and log_state
+    // This is more efficient than virtual functions and avoids implicit heap allocation.
+    friend Fsm;
 };
