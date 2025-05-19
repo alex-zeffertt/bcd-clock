@@ -11,7 +11,7 @@ class MainFsm : public MainFsmTable, public Fsm<MainFsm>
 {
   public:
     MainFsm(Kwm30881 &kwm30881, Bootsel &button, uint64_t tick_hz)
-        : _kwm30881(kwm30881), _button(button), _tick_hz(tick_hz)
+        : _kwm30881(kwm30881), _button(button), _1s(tick_hz), _0_5s(_1s / 2)
     {
         set_initial(ST_UPDATE_TIME);
     }
@@ -28,11 +28,11 @@ class MainFsm : public MainFsmTable, public Fsm<MainFsm>
     Event update_time_tick(void *context)
     {
         bool button = common_tick();
-        if (button && tick - button_posedge_tick > _tick_hz)
+        if (button && tick - button_posedge_tick > _1s)
             return EV_BUTTON_HELD_1SEC;
 
         // Update time
-        subtick = (subtick + 1) % _tick_hz;
+        subtick = (subtick + 1) % _1s;
         seconds = (subtick) ? seconds : ((seconds + 1) % 60);
         minutes = (seconds || subtick) ? minutes : ((minutes + 1) % 60);
         hours = (minutes || seconds || subtick) ? hours : ((hours + 1) % 24);
@@ -45,7 +45,7 @@ class MainFsm : public MainFsmTable, public Fsm<MainFsm>
     Event setting_hours_tick(void *context)
     {
         bool button = common_tick();
-        if (button && (((tick - button_posedge_tick) % (_tick_hz / 2)) == 1))
+        if (button && (((tick - button_posedge_tick) % _0_5s) == (_0_5s - 1)))
             hours = (hours + 1) % 24;
 
         showtime(true, false, false);
@@ -56,7 +56,7 @@ class MainFsm : public MainFsmTable, public Fsm<MainFsm>
     Event setting_minutes_tick(void *context)
     {
         bool button = common_tick();
-        if (button && (((tick - button_posedge_tick) % (_tick_hz / 2)) == 1))
+        if (button && (((tick - button_posedge_tick) % _0_5s) == (_0_5s - 1)))
             minutes = (minutes + 1) % 60;
 
         showtime(false, true, false);
@@ -67,7 +67,7 @@ class MainFsm : public MainFsmTable, public Fsm<MainFsm>
     Event setting_seconds_tick(void *context)
     {
         bool button = common_tick();
-        if (button && (((tick - button_posedge_tick) % (_tick_hz / 2)) == 1))
+        if (button && (((tick - button_posedge_tick) % _0_5s) == (_0_5s - 1)))
             seconds = (seconds + 1) % 60;
 
         showtime(false, false, true);
@@ -132,7 +132,8 @@ class MainFsm : public MainFsmTable, public Fsm<MainFsm>
 
     Kwm30881 &_kwm30881;
     Bootsel &_button;
-    const uint64_t _tick_hz;
+    const uint64_t _1s;
+    const uint64_t _0_5s;
     uint64_t tick = 0;
     uint64_t button_posedge_tick = 0;
     int hours = 0;
