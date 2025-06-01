@@ -3,8 +3,8 @@
 #include "Bootsel.h"
 #include "MainFsm.h"
 
-// Tick rate - short enough to detect button presses but long enough to debounce
-#define TICK_HZ 32
+// Short enough to detect presses but long enough to debounce, must divide 1000
+#define TICK_HZ 8
 
 int main()
 {
