@@ -111,12 +111,20 @@ class MainFsm : public MainFsmTable, public Fsm<MainFsm>
     // Updates display
     void showtime(bool hours_selected = false, bool minutes_selected = false, bool seconds_selected = false)
     {
-        _kwm30881.write_col(0, (seconds % 10) | (seconds_selected << 7));
-        _kwm30881.write_col(1, (seconds / 10) | (seconds_selected << 7));
-        _kwm30881.write_col(3, (minutes % 10) | (minutes_selected << 7));
-        _kwm30881.write_col(4, (minutes / 10) | (minutes_selected << 7));
-        _kwm30881.write_col(6, (hours % 10) | (hours_selected << 7));
-        _kwm30881.write_col(7, (hours / 10) | (hours_selected << 7));
+        uint8_t cols[Kwm30881::NUM_COLS] = {0};
+
+        cols[0] = (seconds % 10) | (seconds_selected << 7);
+        cols[1] = (seconds / 10) | (seconds_selected << 7);
+        cols[3] = (minutes % 10) | (minutes_selected << 7);
+        cols[4] = (minutes / 10) | (minutes_selected << 7);
+        cols[6] = (hours % 10) | (hours_selected << 7);
+        cols[7] = (hours / 10) | (hours_selected << 7);
+
+#ifdef ROTATE
+        _kwm30881.write_cols(cols, true);
+#else
+        _kwm30881.write_cols(cols, false);
+#endif
     }
 
     using Function = Event (MainFsm::*)(void *);

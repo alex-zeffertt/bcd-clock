@@ -3,13 +3,8 @@
 #include "Bootsel.h"
 #include "MainFsm.h"
 
-// State machine tick rate
-#define TICK_HZ 8
-
-// GPIO PIN numbers
-#define GPIO_PIN_DIN 16
-#define GPIO_PIN_CLK 17
-#define GPIO_PIN_LOAD 15
+// Tick rate - short enough to detect button presses but long enough to debounce
+#define TICK_HZ 32
 
 int main()
 {

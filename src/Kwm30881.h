@@ -48,9 +48,13 @@ class Kwm30881
      */
     void write_col(uint8_t col, uint8_t bits)
     {
+#ifdef SEGDP_WIRED_TO_8TH_ROW
         // When wiring I had assumed SEGA-SEGG were 0-6 and SEGDP was 7
         // But it turns out SEGA-SEGG is 1-7 and SEGDP is 0
         uint8_t val = (bits >> 1) + ((bits & 1) << 7);
+#else
+        uint8_t val = bits;
+#endif
 
         // The DIGITX addresses are consecutive
         uint8_t base = static_cast<uint8_t>(Max7219::Address::DIGIT0);
@@ -61,12 +65,28 @@ class Kwm30881
 
     /**
      * @brief Set all of the LED states in one go
+     * @param rotate rotate everything by 90 degrees
      */
-    void write_cols(const uint8_t bits[NUM_COLS])
+    void write_cols(const uint8_t bits[NUM_COLS], const bool rotate)
     {
-        for (int col = 0; col < NUM_COLS; col++)
+        if (!rotate)
         {
-            write_col(col, bits[col]);
+            for (int col = 0; col < NUM_COLS; col++)
+            {
+                write_col(col, bits[col]);
+            }
+        }
+        else
+        {
+            for (int row = 0; row < NUM_COLS; row++)
+            {
+                uint8_t val = 0;
+                for (int col = 0; col < NUM_COLS; col++)
+                {
+                    val |= ((bits[col] >> row) & 1) << (NUM_COLS - col - 1);
+                }
+                write_col(row, val);
+            }
         }
     }
 
