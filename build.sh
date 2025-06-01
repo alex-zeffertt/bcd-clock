@@ -11,5 +11,5 @@ make -C picotool/build
  PICOTOOL_FETCH_FROM_GIT_PATH=$(pwd)/../picotool cmake -S. -B build)
 make -C pico-sdk/build
 
-PICOTOOL_FETCH_FROM_GIT_PATH=$(pwd)/picotool cmake -S . -B build
-make -C build
+cmake --preset breadboard
+cmake --build build

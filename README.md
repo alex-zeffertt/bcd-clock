@@ -17,8 +17,8 @@ git submodule update --init --recursive
 
 # Quick rebuild of just bcd-clock
 ```sh
-PICOTOOL_FETCH_FROM_GIT_PATH=$(pwd)/picotool cmake -S . -B build
-make -C build
+cmake --preset breadboard
+cmake --build build
 ```
 
 # Installation

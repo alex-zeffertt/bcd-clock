@@ -1,0 +1,37 @@
+{
+  "version": 3,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 21
+  },
+  "configurePresets": [
+    {
+      "name": "breadboard",
+      "displayName": "rp pico/max7219/kwm30881 connected via breadboard as described in docs/Schematic.png",
+      "generator": "Unix Makefiles",
+      "binaryDir": "${sourceDir}/build",
+      "cacheVariables": {
+        "GPIO_PIN_DIN": "16",
+        "GPIO_PIN_CLK": "17",
+        "GPIO_PIN_LOAD": "15",
+        "ROTATE": "OFF",
+        "SEGDP_WIRED_TO_8TH_ROW": "ON",
+        "PICOTOOL_FETCH_FROM_GIT_PATH": "${sourceDir}/picotool"
+      }
+    },
+    {
+      "name": "display-module",
+      "displayName": "rp pico back 2 back with display module from https://www.az-delivery.uk/products/64er-led-matrix-display",
+      "generator": "Unix Makefiles",
+      "binaryDir": "${sourceDir}/build",
+      "cacheVariables": {
+        "GPIO_PIN_DIN": "28",
+        "GPIO_PIN_CLK": "26",
+        "GPIO_PIN_LOAD": "27",
+        "ROTATE": "ON",
+        "SEGDP_WIRED_TO_8TH_ROW": "OFF",
+        "PICOTOOL_FETCH_FROM_GIT_PATH": "${sourceDir}/picotool"
+      }
+    }
+  ]
+}
