@@ -33,8 +33,8 @@ class Kwm30881
         // All 8 rows (digits)
         _max7219.write_reg(Max7219::Address::SCAN_LIMIT, 7);
 
-        // Medium intensity
-        _max7219.write_reg(Max7219::Address::INTENSITY, 0xf);
+        // Medium intensity (max 15, min 0)
+        _max7219.write_reg(Max7219::Address::INTENSITY, 4);
 
         // No segment (col) decode for any rows (digits)
         _max7219.write_reg(Max7219::Address::DECODE_MODE, 0);
