@@ -4,7 +4,7 @@
 #include "MainFsm.h"
 
 // Short enough to detect presses but long enough to debounce, must divide 1000
-#define TICK_HZ 8
+#define TICK_HZ 20
 
 int main()
 {
