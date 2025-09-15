@@ -13,7 +13,7 @@ class MainFsm : public MainFsmTable, public Fsm<MainFsm>
     MainFsm(Kwm30881 &kwm30881, Bootsel &button, uint64_t tick_hz)
         : _kwm30881(kwm30881), _button(button), _1s(tick_hz), _0_5s(_1s / 2)
     {
-        set_initial(ST_UPDATE_TIME);
+        set_initial(ST_TICKING);
     }
 
   private:
@@ -25,7 +25,7 @@ class MainFsm : public MainFsmTable, public Fsm<MainFsm>
 
     // action handlers
 
-    Event update_time_tick(void *context)
+    Event ticking_tick(void *context)
     {
         bool button = common_tick();
         if (button && tick - button_posedge_tick > _1s)
@@ -48,7 +48,7 @@ class MainFsm : public MainFsmTable, public Fsm<MainFsm>
         if (button && (((tick - button_posedge_tick) % _0_5s) == (_0_5s - 1)))
             hours = (hours + 1) % 24;
 
-        showtime(true, false, false);
+        showtime(true, false);
 
         return EV_NULL_EVENT;
     }
@@ -57,20 +57,16 @@ class MainFsm : public MainFsmTable, public Fsm<MainFsm>
     {
         bool button = common_tick();
         if (button && (((tick - button_posedge_tick) % _0_5s) == (_0_5s - 1)))
-            minutes = (minutes + 1) % 60;
+        {
+            seconds += 150;
+            while (seconds >= 60)
+            {
+                seconds -= 60;
+                minutes = (minutes + 1) % 60;
+            }
+        }
 
-        showtime(false, true, false);
-
-        return EV_NULL_EVENT;
-    }
-
-    Event setting_seconds_tick(void *context)
-    {
-        bool button = common_tick();
-        if (button && (((tick - button_posedge_tick) % _0_5s) == (_0_5s - 1)))
-            seconds = (seconds + 1) % 60;
-
-        showtime(false, false, true);
+        showtime(false, true);
 
         return EV_NULL_EVENT;
     }
@@ -109,16 +105,44 @@ class MainFsm : public MainFsmTable, public Fsm<MainFsm>
     }
 
     // Updates display
-    void showtime(bool hours_selected = false, bool minutes_selected = false, bool seconds_selected = false)
+    void showtime(bool hours_selected = false, bool minutes_selected = false)
     {
-        uint8_t cols[Kwm30881::NUM_COLS] = {0};
+        uint8_t cols[Kwm30881::NUM_COLS] = {};
+        memset(cols, 0, sizeof(cols));
 
-        cols[0] = (seconds % 10) | (seconds_selected << 7);
-        cols[1] = (seconds / 10) | (seconds_selected << 7);
-        cols[3] = (minutes % 10) | (minutes_selected << 7);
-        cols[4] = (minutes / 10) | (minutes_selected << 7);
-        cols[6] = (hours % 10) | (hours_selected << 7);
-        cols[7] = (hours / 10) | (hours_selected << 7);
+        constexpr int hour_hand_cols[12] = {3, 2, 2, 2, 2, 3, 4, 5, 5, 5, 5, 4};
+        constexpr int hour_hand_rows[12] = {5, 5, 4, 3, 2, 2, 2, 2, 3, 4, 5, 5};
+        constexpr int minute_hand_cols[24] = {3, 2, 1, 0, 0, 0, 0, 0, 0, 1, 2, 3, 4, 5, 6, 7, 7, 7, 7, 7, 7, 6, 5, 4};
+        constexpr int minute_hand_rows[24] = {7, 7, 7, 6, 5, 4, 3, 2, 1, 0, 0, 0, 0, 0, 0, 1, 2, 3, 4, 5, 6, 7, 7, 7};
+
+        int n_hours_leds = hours % 12;
+        int n_minutes_leds = ((seconds + 60 * minutes) * 24) / 3600;
+
+        for (size_t i = 0; i < n_hours_leds; i++)
+        {
+            cols[hour_hand_cols[i]] |= 1 << hour_hand_rows[i];
+        }
+
+        for (size_t i = 0; i < n_minutes_leds; i++)
+        {
+            cols[minute_hand_cols[i]] |= 1 << minute_hand_rows[i];
+        }
+
+        if (hours_selected)
+        {
+            for (size_t i = 0; i < 12; i++)
+            {
+                cols[hour_hand_cols[i]] ^= (1 << hour_hand_rows[i]);
+            }
+        }
+
+        if (minutes_selected)
+        {
+            for (size_t i = 0; i < 24; i++)
+            {
+                cols[minute_hand_cols[i]] ^= (1 << minute_hand_rows[i]);
+            }
+        }
 
 #ifdef ROTATE
         _kwm30881.write_cols(cols, true);
@@ -130,10 +154,9 @@ class MainFsm : public MainFsmTable, public Fsm<MainFsm>
     using Function = Event (MainFsm::*)(void *);
     static constexpr const Function _handlers[NUM_ACTIONS] = {
         [AC_IGNORE_EVENT] = nullptr,
-        [AC_UPDATE_TIME_TICK] = &MainFsm::update_time_tick,
+        [AC_TICKING_TICK] = &MainFsm::ticking_tick,
         [AC_SETTING_HOURS_TICK] = &MainFsm::setting_hours_tick,
         [AC_SETTING_MINUTES_TICK] = &MainFsm::setting_minutes_tick,
-        [AC_SETTING_SECONDS_TICK] = &MainFsm::setting_seconds_tick,
         [AC_START_UPGRADE] = &MainFsm::start_upgrade,
         [AC_NO_ACTION] = nullptr,
     };
