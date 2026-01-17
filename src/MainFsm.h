@@ -58,12 +58,8 @@ class MainFsm : public MainFsmTable, public Fsm<MainFsm>
         bool button = common_tick();
         if (button && (((tick - button_posedge_tick) % _0_5s) == (_0_5s - 1)))
         {
-            seconds += 150;
-            while (seconds >= 60)
-            {
-                seconds -= 60;
-                minutes = (minutes + 1) % 60;
-            }
+            seconds = 0;
+            minutes = (minutes + 1) % 60;
         }
 
         showtime(false, true);
@@ -110,39 +106,28 @@ class MainFsm : public MainFsmTable, public Fsm<MainFsm>
         uint8_t cols[Kwm30881::NUM_COLS] = {};
         memset(cols, 0, sizeof(cols));
 
-        constexpr int hour_hand_cols[12] = {3, 2, 2, 2, 2, 3, 4, 5, 5, 5, 5, 4};
-        constexpr int hour_hand_rows[12] = {5, 5, 4, 3, 2, 2, 2, 2, 3, 4, 5, 5};
-        constexpr int minute_hand_cols[24] = {3, 2, 1, 0, 0, 0, 0, 0, 0, 1, 2, 3, 4, 5, 6, 7, 7, 7, 7, 7, 7, 6, 5, 4};
-        constexpr int minute_hand_rows[24] = {7, 7, 7, 6, 5, 4, 3, 2, 1, 0, 0, 0, 0, 0, 0, 1, 2, 3, 4, 5, 6, 7, 7, 7};
+        int bcd_hi;
+        int bcd_lo;
 
-        int n_hours_leds = hours % 12;
-        int n_minutes_leds = ((seconds + 60 * minutes) * 24) / 3600;
+        // Set hours
+        bcd_hi = hours / 10;
+        bcd_lo = hours % 10;
 
-        for (size_t i = 0; i < n_hours_leds; i++)
-        {
-            cols[hour_hand_cols[i]] |= 1 << hour_hand_rows[i];
-        }
+        cols[7] = cols[6] = ((bcd_hi & 1) + ((bcd_hi & 2) << 1)) * 3;
+        cols[5] = cols[4] = ((bcd_lo & 1) + ((bcd_lo & 2) << 1) + ((bcd_lo & 4) << 2) + ((bcd_lo & 8) << 3)) * 3;
 
-        for (size_t i = 0; i < n_minutes_leds; i++)
-        {
-            cols[minute_hand_cols[i]] |= 1 << minute_hand_rows[i];
-        }
+        // Set mins
+        bcd_hi = minutes / 10;
+        bcd_lo = minutes % 10;
+
+        cols[3] = cols[2] = ((bcd_hi & 1) + ((bcd_hi & 2) << 1) + ((bcd_hi & 4) << 2)) * 3;
+        cols[1] = cols[0] = ((bcd_lo & 1) + ((bcd_lo & 2) << 1) + ((bcd_lo & 4) << 2) + ((bcd_lo & 8) << 3)) * 3;
 
         if (hours_selected)
-        {
-            for (size_t i = 0; i < 12; i++)
-            {
-                cols[hour_hand_cols[i]] ^= (1 << hour_hand_rows[i]);
-            }
-        }
+            cols[7] |= 0x80;
 
         if (minutes_selected)
-        {
-            for (size_t i = 0; i < 24; i++)
-            {
-                cols[minute_hand_cols[i]] ^= (1 << minute_hand_rows[i]);
-            }
-        }
+            cols[3] |= 0x80;
 
 #ifdef ROTATE
         _kwm30881.write_cols(cols, true);

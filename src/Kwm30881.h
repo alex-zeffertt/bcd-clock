@@ -34,7 +34,7 @@ class Kwm30881
         _max7219.write_reg(Max7219::Address::SCAN_LIMIT, 7);
 
         // Medium intensity
-        _max7219.write_reg(Max7219::Address::INTENSITY, 0xf);
+        _max7219.write_reg(Max7219::Address::INTENSITY, 0x8);
 
         // No segment (col) decode for any rows (digits)
         _max7219.write_reg(Max7219::Address::DECODE_MODE, 0);
