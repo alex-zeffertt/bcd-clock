@@ -70,7 +70,7 @@ Exit with `C-a C-x`
 
 ## Software
 
-(Created with `lib/fsm/tools/gen_graph -i src/MainFsmTable.h -c MainFsmTable -o src/MainFsmTable.png`)
+(Created with `lib/fsm/tools/gen_graph -i src/MainFsmTable.h -c MainFsmTable -o docs/MainFsmTable.png`)
 
 ![alt text](docs/MainFsmTable.png "MainFsmTable")
 
