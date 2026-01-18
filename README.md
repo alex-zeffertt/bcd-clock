@@ -16,8 +16,16 @@ git submodule update --init --recursive
 ```
 
 # Quick rebuild of just bcd-clock
+
 ```sh
 cmake --preset breadboard
+cmake --build build
+```
+
+or 
+
+```sh
+cmake --preset display-module
 cmake --build build
 ```
 
@@ -76,12 +84,22 @@ Exit with `C-a C-x`
 
 ## Hardware
 
-### Inventory
+### Inventory (breadboard)
 
 Bought from pihut.com
 
-![alt text](docs/Inventory.png "Inventory")
+![alt text](docs/Inventory-breadboard.png "Inventory")
 
-### Schematic
+### Inventory (display-module)
 
-![alt text](docs/Schematic.png "Schematic")
+Bought from www.az-delivery.de
+
+![alt text](docs/Inventory-display-module.png "Inventory")
+
+### Schematic (breadboard)
+
+![alt text](docs/Schematic-breadboard.png "Schematic")
+
+### Schematic (display-module)
+
+![alt text](docs/Schematic-display-module.png "Schematic")
