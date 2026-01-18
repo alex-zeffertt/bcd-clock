@@ -10,6 +10,11 @@ sudo apt install \
 git submodule update --init --recursive
 ```
 
+# Branches
+
+There are various different git branches each supporting a different type of clock that can run on
+the same 8x8 LED matrix.  The type of clock should be inferred from the name of the branch.
+
 # Build SDK, picotool, and bcd-clock
 ```sh
 ./build.sh
